@@ -1,0 +1,294 @@
+---
+title: "统计推断-控制台"
+runtime: shiny
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: row
+    vertical_layout: fill
+    theme: 
+      bg: "#fff"
+      fg: "#000" 
+      primary: "#325D88"
+      secondary: "#8E8C84"
+      success: "#93C54B"
+      warning: "#F47C3C"
+      danger: "#D9534F"
+---
+
+```{r}
+# TODO 2: study the interactive among shiny input.
+# TODO 3: add the interactive between y_var input and X_var input( exclude y, from x_var choices)
+# TODO 4: add the interative of value select. For example, after select X variable name, get category list, and put it in to a multiselect input. it can be used to filter data.frame
+# TODO 5: publish to github
+# TODO 6: publish to shinyweb.
+```
+
+
+```{r setup, include=FALSE}
+library(flexdashboard) 
+library(reactlog)
+
+library(tidyverse) # include ggplot2 and dplyr and tidyr
+library(dbplyr)
+library(DBI)
+library(tsibble)
+library(tsibble)
+library(feasts)
+
+reactlog::reactlog_enable()
+source('etl.R')
+vars_names <- get_var_names()
+
+```
+
+## Inputs {.sidebar}
+```{r constant_for_input}
+plot_type_1d <- c('geom_density',
+                  'geom_dotplot',
+                  'geom_freqpoly',
+                  'geom_histogram',
+                  'geom_boxplot'
+                  )
+
+plot_type_md <- c('geom_point',
+                  'geom_smooth',
+                  'geom_boxplot',
+                  'geom_col',
+                  'geom_area',
+                  'geom_violin',
+                  'geom_line'
+                  )
+
+```
+
+
+```{r}
+
+selectInput(
+  inputId = 'var_y',
+  label='选择目标变量',
+  selected = get_y_names()[1],
+  choices = get_y_names()
+)
+
+get_y_input <- reactive(input$var_y)
+
+dateRangeInput(
+  'var_ts',
+  "数据分析开始，结束时间选择",
+  start = '2022-11-01',
+  end = '2022-11-30',
+  min = '2018-01-01',
+  max = '2022-11-30'
+)
+
+
+selectInput(inputId = 'var_x1',
+            label = '控制变量1_选择',
+            selected = vars_names[1],
+            choices = vars_names)
+
+
+selectInput(inputId = 'var_x2',
+            label = '控制变量2_选择',
+            selected = vars_names[2],
+            choices = vars_names)
+
+
+
+selectInput(inputId = 'geom_name_1d',
+            label = '单维方法',
+            selected = plot_type_1d[1],
+            choices = plot_type_1d
+            )
+selectInput(inputId = 'geom_name_md',
+            label = '多维方法',
+            selected = plot_type_md[1],
+            choices = plot_type_md
+            )
+```
+
+```{r get_input}
+get_x1_input <- reactive(input$var_x1)
+get_x2_input <- reactive(input$var_x2)
+get_ts_input <- reactive(input$var_ts)
+get_geom_1d_input <- reactive(input$geom_name_1d)
+get_geom_md_input <- reactive(input$geom_name_md)
+
+```
+
+## Row
+### 目标变量-平均值 {.value-box}
+```{r}
+  renderValueBox({
+    kpi_value <- get_var_summary(input$var_y) |> 
+      select(mean) |>
+      pull()
+  valueBox(kpi_value, icon = "fa-users")
+ })
+```
+
+### 目标变量- 标准差 {.value-box}
+
+```{r}
+  renderValueBox({
+  kpi_value <- get_var_summary(input$var_y) |>
+    select(sd) |>
+    pull()
+  valueBox(kpi_value, icon = "fa-users")
+ })
+```
+
+### 目标变量- 数量 {.value-box}
+
+```{r}
+  renderValueBox({
+  kpi_value <- get_var_summary(input$var_y)  |>
+    select(n) |>
+    pull()
+  valueBox(kpi_value, icon = "fa-users")
+ })
+```
+
+### 目标变量- 缺失比例（%） {.value-box}
+
+```{r}
+get_color_value <- function(kpi_value) {
+    case_when(
+      kpi_value >= 0.05 ~ 'danger',
+      kpi_value < 0.05 & kpi_value >0 ~ 'warning',
+      near(kpi_value, 0) ~ 'success',
+      TRUE ~ 'success'
+    )
+}
+
+renderValueBox({
+  kpi_value <- get_var_summary(input$var_y) |>
+    select(missing_rate) |>
+    pull()
+  
+  color_value <- get_color_value(kpi_value)
+  valueBox(kpi_value, icon = "fa-users", color = color_value)
+})
+```
+
+
+## Row {.tabset .tabset-fade data-height=600}
+-----------------------------------------------------------------------
+
+### 单一维度分析
+
+```{r}
+get_1d_plot <- function(plot_type='geom_boxplot', df) {
+  gg <- ggplot(df, mapping=aes(x = var_y))
+  
+  g_step <- gg + switch(plot_type,
+            'geom_density' =  geom_density(),
+            'geom_dotplot' =   geom_dotplot(),
+            'geom_freqpoly'  =  geom_freqpoly(),
+            'geom_histogram' = geom_histogram(),
+            'geom_boxplot' = geom_boxplot(),
+
+           )
+  g_step + 
+    labs(x= get_y_input()) +
+    theme_classic() +
+    theme(axis.title = element_text(
+                        face='bold', ##字体外形（粗斜体等）
+                        size=20, ##字体大小
+                        lineheight = 1),##标签行间距的倍数
+        axis.text = element_text(
+                        face="bold", ##字体外形（粗斜体等）
+                        color="blue",
+                        size=20))
+}
+renderPlot(
+      get_std_df(get_y_input(), get_x1_input(), get_x2_input()) |>
+        get_1d_plot(get_geom_1d_input(), df=_)
+)  
+```
+
+
+### 多元维度分析
+
+```{r}
+get_md_plot <- function(plot_type='geom_boxplot', df) {
+  gg <- ggplot(df, aes(y=var_y, x = var_x1, color=var_x2))
+  
+  g_step <- gg + switch(plot_type,
+            'geom_point' =  geom_point(),
+            'geom_area' = geom_area(),
+            'geom_boxplot' =   geom_boxplot(),
+            'geom_violin' = geom_violin(),
+            'geom_line' = geom_line(),
+            
+
+           )
+  g_step + 
+    labs(y= get_y_input(),x=get_x1_input()) +
+    theme_classic() +
+    theme(axis.title = element_text(
+                        face='bold', ##字体外形（粗斜体等）
+                        size=20, ##字体大小
+                        lineheight = 1),##标签行间距的倍数
+        axis.text = element_text(
+                        face="bold", ##字体外形（粗斜体等）
+                        color="blue",
+                        size=10),
+        legend.text= element_text(
+                        face="bold", ##字体外形（粗斜体等）
+                        color="blue",
+                        size=15), 
+        )
+}
+renderPlot(
+      get_std_df(get_y_input(), get_x1_input(), get_x2_input(),keep_ts=TRUE) |>
+       autoplot()
+)  
+```
+
+
+### 时间维度分析
+```{r}
+renderPlot(
+   dcmp <- get_std_df(get_y_input(), get_x1_input(), get_x2_input()) |> 
+     model(STL(Beer ~ season(window = Inf))) |>
+     components() %>% autoplot()
+)
+      
+```
+
+Row {.tabset .tabset-fade data-height=200}
+-----------------------------------------------------------------------
+
+### 数据透视
+
+```{r}
+
+renderDataTable(
+  get_std_df(get_y_input(),
+             get_x1_input(),
+             get_x2_input())
+)
+```
+
+### 原始数据
+
+```{r}
+renderDataTable(get_df())
+```
+
+### 调试数据
+
+```{r}
+renderPrint({
+  cat( paste( '\nvar_y_name = ', get_y_input()),
+       paste('\nvar_x1_name = ', get_x1_input()),
+       paste('\nvar_x2_name = ', get_x2_input()),
+       paste('\nvar_ts_name = ', get_ts_input()),
+       paste('\nplot_1d_type   = ', get_geom_1d_input()),
+       paste('\nplot_md_type   = ', get_geom_md_input())
+       )
+      })
+
+```
