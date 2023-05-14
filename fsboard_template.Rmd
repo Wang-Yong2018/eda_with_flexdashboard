@@ -19,7 +19,7 @@ output:
 # TODO 2: study the interactive among shiny input.
 # TODO 3: add the interactive between y_var input and X_var input( exclude y, from x_var choices)
 # TODO 4: add the interative of value select. For example, after select X variable name, get category list, and put it in to a multiselect input. it can be used to filter data.frame
-# TODO 5: publish to github
+# TODO 5[DONE]: publish to github
 # TODO 6: publish to shinyweb.
 ```
 
@@ -235,15 +235,15 @@ get_md_plot <- function(plot_type='geom_boxplot', df) {
                         face="bold", ##字体外形（粗斜体等）
                         color="blue",
                         size=10),
-        legend.text= element_text(
-                        face="bold", ##字体外形（粗斜体等）
-                        color="blue",
-                        size=15), 
+        # legend.text= element_text(
+        #                 face="bold", ##字体外形（粗斜体等）
+        #                 color="blue",
+        #                 size=15), 
         )
 }
 renderPlot(
-      get_std_df(get_y_input(), get_x1_input(), get_x2_input(),keep_ts=TRUE) |>
-       autoplot()
+      get_std_df(get_y_input(), get_x1_input(), get_x2_input(), keep_ts = TRUE) |>
+      get_md_plot(get_geom_md_input(), df=_)
 )  
 ```
 
