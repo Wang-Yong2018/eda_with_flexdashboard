@@ -1,6 +1,8 @@
 # This R script is for loading and transformat data
 library(ggplot2)
 library(tsibbledata)
+library(dplyr)
+
 get_default_df <- function(){
   # get the datafram to analysis purpose.
   # by default using the diamonds dataset from ggplot2 
@@ -36,7 +38,7 @@ get_std_df <- function(var_y, var_x1=NULL, var_x2=NULL, var_ts=NULL,keep_ts=FALS
   # todo 1.  note object:object eror might be no data ouput which happed when you add code broke pipeline output
 }
 
-get_var_names <- function(only_numeric=FALSE, df=default_df){
+get_var_names <- function(type='all',df=NULL){
   # get all variable names from data.frame
   # parameter: 
   #   only_numeric(TRUE) to filter the numeric column only
@@ -44,18 +46,22 @@ get_var_names <- function(only_numeric=FALSE, df=default_df){
   if (is.null(df)) {
     df <- get_df()
   }
-  if (!only_numeric) {
-    var_names <- df |> names()
+  var_names <- df|> names()
+  
+  if (type == 'numeric'){
     
-  }else {
-    var_names <- df |> select(where(is.numeric)) |> names()
+    var_names <- df|> select(where(is.numeric))|>names()
+  } else if (type == 'character') {
+    var_names <- df|> select(where(is.character))|>names()
+    
   }
+  var_names
 }
 
 get_y_names <- function(df=default_df){
   # get target variables name list
   # only use the numeric type variable as target variable to analysis purpose
-   get_var_names(df, only_numeric = TRUE)
+   get_var_names(type = 'numeric',df)
 }
 
 get_var_tbl <- function(var_name=NULL, df=default_df){
@@ -73,7 +79,8 @@ get_var_summary <- function(var_name=NULL, df=default_df){
     summarise(mean = mean(get(var_name)),
               sd =   sd(get(var_name)),
               n  =    n(),
-              missing_rate = sum(is.na(get( var_name)))/n()
+              missing_rate = sum(is.na(get( var_name)))/n(),
+              max = max(get(var_name))
               ) |>
     round(3)
 }

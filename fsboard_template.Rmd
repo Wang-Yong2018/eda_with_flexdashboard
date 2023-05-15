@@ -1,5 +1,5 @@
 ---
-title: "统计推断-控制台"
+title: "Exploratory Data Analysis-Dashboard"
 runtime: shiny
 output: 
   flexdashboard::flex_dashboard:
@@ -21,6 +21,7 @@ output:
 # TODO 4: add the interative of value select. For example, after select X variable name, get category list, and put it in to a multiselect input. it can be used to filter data.frame
 # TODO 5[DONE]: publish to github
 # TODO 6: publish to shinyweb.
+# TODO 7: profile shiny slow reason
 ```
 
 
@@ -34,10 +35,11 @@ library(DBI)
 library(tsibble)
 library(tsibble)
 library(feasts)
-
 reactlog::reactlog_enable()
 source('etl.R')
-vars_names <- get_var_names()
+var_names <- get_var_names()
+y_names <- get_y_names()
+chr_names <- get_var_names(type='character')
 
 ```
 
@@ -58,51 +60,140 @@ plot_type_md <- c('geom_point',
                   'geom_violin',
                   'geom_line'
                   )
-
 ```
-
 
 ```{r}
 
 selectInput(
   inputId = 'var_y',
-  label='选择目标变量',
-  selected = get_y_names()[1],
-  choices = get_y_names()
+  label = 'select Y name(Y axis)', 
+  selected = y_names[1],
+  choices = y_names
 )
 
 get_y_input <- reactive(input$var_y)
+```
 
-dateRangeInput(
-  'var_ts',
-  "数据分析开始，结束时间选择",
-  start = '2022-11-01',
-  end = '2022-11-30',
-  min = '2018-01-01',
-  max = '2022-11-30'
-)
-
-
+### input x1 x2
+```{r}
 selectInput(inputId = 'var_x1',
-            label = '控制变量1_选择',
-            selected = vars_names[1],
-            choices = vars_names)
-
+            label = 'control variable_1(X axis)',
+            selected = var_names[1],
+            choices = var_names)
 
 selectInput(inputId = 'var_x2',
-            label = '控制变量2_选择',
-            selected = vars_names[2],
-            choices = vars_names)
+            label = 'control variable_2(group)',
+            selected = var_names[2],
+            choices = var_names)
+selectInput(inputId = 'var_ts',
+            label = 'time variable',
+            choices = var_names)
+
+get_x1_input <- reactive(input$var_x1)
+get_x2_input <- reactive(input$var_x2)
+get_ts_input <- reactive(input$var_ts)
+```
 
 
+```{r}
+observeEvent(input$var_y, {
+  used_var_names <- get_y_input()
 
+  new_var_names <- setdiff(var_names,used_var_names)
+  updateSelectInput(inputId = "var_x1",
+                    label = 'control variable_1(X axis)',
+                    selected = new_var_names[1],
+                    choices = new_var_names)
+    updateSelectInput(inputId = "var_x2",
+                    label = 'control variable_2(group)',
+                    selected = new_var_names[2],
+                    choices = new_var_names)
+ })
+
+```
+
+
+```{r}
+sliderInput(inputId = "y_value", 
+            label = "select y value",
+            value=c(0,1), 
+            min = 0,
+            max = 10)
+observeEvent(input$var_y, {
+  value_range <-get_var_summary(input$var_y)
+  
+  updateSliderInput(
+    inputId = "y_value",
+    value = c(value_range$min, value_range$max),
+    min = value_range$min,
+    max = value_range$max,
+  )
+})
+get_y_value_input <- reactive(input$y_value)
+
+
+selectInput(inputId = 'var_x1_value',
+            label = 'var_X1_values',
+            choices=c(),
+            multiple = TRUE,
+            )
+
+selectInput(inputId = 'var_x2_value',
+            label = 'var_X2_values',
+            choices=c(),
+            multiple = TRUE,
+            )
+
+
+observeEvent(input$var_x1, {
+  
+  if(input$var_x1 %in% chr_names) { 
+      value_list <- get_df() |> count(get(input$var_x1),sort=TRUE) |> pull(1)
+      updateSelectInput( inputId = "var_x1_value",
+                         label = paste(input$var_x1, '-->value'),
+                         selected = value_list[1],
+                         choices = value_list)
+  }else{
+      updateSelectInput(inputId = 'var_x1_value',
+                        label = 'var_X1_values',
+                        choices=c(),
+                        )
+    
+  }
+})
+
+observeEvent(input$var_x2, {
+  
+  if(input$var_x2 %in% chr_names) { 
+      value_list <- get_df() |> count(get(input$var_x2),sort=TRUE) |> pull(1)
+      updateSelectInput( inputId = "var_x2_value",
+                         label = paste(input$var_x2, '-->value'),
+                         selected = value_list[1],
+                         choices = value_list)
+  }else{
+      updateSelectInput(inputId = 'var_x2_value',
+                        label = 'var_X2_values',
+                        choices=c(),
+                        )
+    
+  }
+})
+
+get_x1_value_input <- reactive(input$x1_value)
+get_x2_value_input <- reactive(input$x2_value)
+
+
+```
+
+### input_plot_type
+```{r}
 selectInput(inputId = 'geom_name_1d',
-            label = '单维方法',
+            label = 'plot response',
             selected = plot_type_1d[1],
             choices = plot_type_1d
             )
 selectInput(inputId = 'geom_name_md',
-            label = '多维方法',
+            label = 'plot y with x, group',
             selected = plot_type_md[1],
             choices = plot_type_md
             )
@@ -118,7 +209,7 @@ get_geom_md_input <- reactive(input$geom_name_md)
 ```
 
 ## Row
-### 目标变量-平均值 {.value-box}
+### Response-mean {.value-box}
 ```{r}
   renderValueBox({
     kpi_value <- get_var_summary(input$var_y) |> 
@@ -128,7 +219,7 @@ get_geom_md_input <- reactive(input$geom_name_md)
  })
 ```
 
-### 目标变量- 标准差 {.value-box}
+### Response-std 标准差 {.value-box}
 
 ```{r}
   renderValueBox({
@@ -139,7 +230,7 @@ get_geom_md_input <- reactive(input$geom_name_md)
  })
 ```
 
-### 目标变量- 数量 {.value-box}
+### Response-count {.value-box}
 
 ```{r}
   renderValueBox({
@@ -150,7 +241,7 @@ get_geom_md_input <- reactive(input$geom_name_md)
  })
 ```
 
-### 目标变量- 缺失比例（%） {.value-box}
+### Response-missing rate {.value-box}
 
 ```{r}
 get_color_value <- function(kpi_value) {
@@ -176,11 +267,11 @@ renderValueBox({
 ## Row {.tabset .tabset-fade data-height=600}
 -----------------------------------------------------------------------
 
-### 单一维度分析
+### Response plot
 
 ```{r}
 get_1d_plot <- function(plot_type='geom_boxplot', df) {
-  gg <- ggplot(df, mapping=aes(x = var_y))
+  gg <- ggplot(df, mapping = aes(x = var_y))
   
   g_step <- gg + switch(plot_type,
             'geom_density' =  geom_density(),
@@ -191,29 +282,29 @@ get_1d_plot <- function(plot_type='geom_boxplot', df) {
 
            )
   g_step + 
-    labs(x= get_y_input()) +
+    labs(x = get_y_input()) +
     theme_classic() +
     theme(axis.title = element_text(
-                        face='bold', ##字体外形（粗斜体等）
-                        size=20, ##字体大小
-                        lineheight = 1),##标签行间距的倍数
+                        face = 'bold', ## Font style
+                        size = 20, ## Font size
+                        lineheight = 1),## Font line height
         axis.text = element_text(
-                        face="bold", ##字体外形（粗斜体等）
-                        color="blue",
-                        size=20))
+                        face = "bold", ## font style
+                        color = "blue",
+                        size = 20)) ## font size
 }
 renderPlot(
       get_std_df(get_y_input(), get_x1_input(), get_x2_input()) |>
-        get_1d_plot(get_geom_1d_input(), df=_)
+        get_1d_plot(get_geom_1d_input(), df = _)
 )  
 ```
 
 
-### 多元维度分析
+### Y~X1+X2 Plot
 
 ```{r}
 get_md_plot <- function(plot_type='geom_boxplot', df) {
-  gg <- ggplot(df, aes(y=var_y, x = var_x1, color=var_x2))
+  gg <- ggplot(df, aes(y = var_y, x = var_x1, color = var_x2))
   
   g_step <- gg + switch(plot_type,
             'geom_point' =  geom_point(),
@@ -225,35 +316,39 @@ get_md_plot <- function(plot_type='geom_boxplot', df) {
 
            )
   g_step + 
-    labs(y= get_y_input(),x=get_x1_input()) +
+    labs(y = get_y_input(),x = get_x1_input()) +
     theme_classic() +
     theme(axis.title = element_text(
-                        face='bold', ##字体外形（粗斜体等）
-                        size=20, ##字体大小
-                        lineheight = 1),##标签行间距的倍数
+                        face = 'bold', ## Font style
+                        size = 20, ## Font size
+                        ),
         axis.text = element_text(
-                        face="bold", ##字体外形（粗斜体等）
-                        color="blue",
-                        size=10),
-        # legend.text= element_text(
-        #                 face="bold", ##字体外形（粗斜体等）
-        #                 color="blue",
-        #                 size=15), 
+                        face = "bold", ## Font style
+                        color = "blue",
+                        size = 10),
+        legend.text = element_text(
+                        face = "bold", ## Font sytle
+                        color = "blue",
+                        size = 15),
         )
 }
 renderPlot(
       get_std_df(get_y_input(), get_x1_input(), get_x2_input(), keep_ts = TRUE) |>
-      get_md_plot(get_geom_md_input(), df=_)
+      get_md_plot(get_geom_md_input(), df = _)
 )  
 ```
 
 
-### 时间维度分析
+###  Time series plot
 ```{r}
 renderPlot(
-   dcmp <- get_std_df(get_y_input(), get_x1_input(), get_x2_input()) |> 
-     model(STL(Beer ~ season(window = Inf))) |>
-     components() %>% autoplot()
+   #dcmp <- get_std_df(get_y_input(), get_x1_input(), get_x2_input(),get_ts_input()) |> 
+   #  model(STL(Beer ~ season(window = Inf))) |>
+   #  components() %>% autoplot()
+   # y <- get_y_input()
+   # x <- get_x1_input()
+   # ts <- get_ts_input()
+   get_df() |> autoplot()
 )
       
 ```
@@ -261,7 +356,7 @@ renderPlot(
 Row {.tabset .tabset-fade data-height=200}
 -----------------------------------------------------------------------
 
-### 数据透视
+### Transformed Data Table
 
 ```{r}
 
@@ -272,20 +367,24 @@ renderDataTable(
 )
 ```
 
-### 原始数据
+###  Raw Data Table
 
 ```{r}
 renderDataTable(get_df())
 ```
 
-### 调试数据
+### Debug Information
 
 ```{r}
 renderPrint({
-  cat( paste( '\nvar_y_name = ', get_y_input()),
-       paste('\nvar_x1_name = ', get_x1_input()),
-       paste('\nvar_x2_name = ', get_x2_input()),
-       paste('\nvar_ts_name = ', get_ts_input()),
+  cat( paste( '\nvar_y_name = ', get_y_input(),
+              '---',
+              str(y_names), 
+              '-----',"var_y_value:", 
+              str(get_y_value_input())),
+       paste('\nvar_x1_name = ', str(get_x1_input())),
+       paste('\nvar_x2_name = ', str(get_x2_input())),
+       paste('\nvar_ts_name = ', str(get_ts_input())),
        paste('\nplot_1d_type   = ', get_geom_1d_input()),
        paste('\nplot_md_type   = ', get_geom_md_input())
        )
