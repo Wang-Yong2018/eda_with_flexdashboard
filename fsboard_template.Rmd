@@ -67,7 +67,7 @@ plot_type_md <- c('geom_point',
 selectInput(
   inputId = 'var_y',
   label = 'select Y name(Y axis)', 
-  selected = y_names[1],
+  selected = NULL,
   choices = y_names
 )
 
@@ -151,7 +151,6 @@ observeEvent(input$var_x1, {
       value_list <- get_df() |> count(get(input$var_x1),sort=TRUE) |> pull(1)
       updateSelectInput( inputId = "var_x1_value",
                          label = paste(input$var_x1, '-->value'),
-                         selected = value_list[1],
                          choices = value_list)
   }else{
       updateSelectInput(inputId = 'var_x1_value',
@@ -168,7 +167,6 @@ observeEvent(input$var_x2, {
       value_list <- get_df() |> count(get(input$var_x2),sort=TRUE) |> pull(1)
       updateSelectInput( inputId = "var_x2_value",
                          label = paste(input$var_x2, '-->value'),
-                         selected = value_list[1],
                          choices = value_list)
   }else{
       updateSelectInput(inputId = 'var_x2_value',
@@ -178,9 +176,6 @@ observeEvent(input$var_x2, {
     
   }
 })
-
-get_x1_value_input <- reactive(input$x1_value)
-get_x2_value_input <- reactive(input$x2_value)
 
 
 ```
@@ -203,14 +198,35 @@ selectInput(inputId = 'geom_name_md',
 get_x1_input <- reactive(input$var_x1)
 get_x2_input <- reactive(input$var_x2)
 get_ts_input <- reactive(input$var_ts)
+get_x1_value_input <- reactive(input$var_x1_value)
+get_x2_value_input <- reactive(input$var_x2_value)
 get_geom_1d_input <- reactive(input$geom_name_1d)
 get_geom_md_input <- reactive(input$geom_name_md)
 
 ```
 
 ## Row
+```{r}
+get_filted_df <- reactive({
+  y_value_range <- get_y_value_input()
+  x1_list <- get_x1_value_input()
+  x2_list <- get_x2_value_input()
+  
+  std_df <- get_std_df(get_y_input(), get_x1_input(), get_x2_input(), keep_ts = TRUE)
+  
+   etl_df <- std_df |> 
+     filter(between(var_y, y_value_range[1], y_value_range[2]))|>
+     filter(var_x1 %in% x1_list | is.null(x1_list)) |>
+     filter(var_x2 %in% x2_list | is.null(x2_list)) 
+   etl_df 
+  #std_df
+})
+#print(filted_df())
+```
+
 ### Response-mean {.value-box}
 ```{r}
+## TODO 8 : apply filtered_df to 3 kpi_value
   renderValueBox({
     kpi_value <- get_var_summary(input$var_y) |> 
       select(mean) |>
@@ -294,8 +310,9 @@ get_1d_plot <- function(plot_type='geom_boxplot', df) {
                         size = 20)) ## font size
 }
 renderPlot(
-      get_std_df(get_y_input(), get_x1_input(), get_x2_input()) |>
-        get_1d_plot(get_geom_1d_input(), df = _)
+     # get_std_df(get_y_input(), get_x1_input(), get_x2_input()) |>
+     get_filted_df() |>
+       get_1d_plot(get_geom_1d_input(), df = _)
 )  
 ```
 
@@ -333,8 +350,9 @@ get_md_plot <- function(plot_type='geom_boxplot', df) {
         )
 }
 renderPlot(
-      get_std_df(get_y_input(), get_x1_input(), get_x2_input(), keep_ts = TRUE) |>
-      get_md_plot(get_geom_md_input(), df = _)
+   get_filted_df() |>
+   #   get_std_df(get_y_input(), get_x1_input(), get_x2_input(), keep_ts = TRUE) |>
+   get_md_plot(get_geom_md_input(), df = _)
 )  
 ```
 
@@ -361,9 +379,10 @@ Row {.tabset .tabset-fade data-height=200}
 ```{r}
 
 renderDataTable(
-  get_std_df(get_y_input(),
-             get_x1_input(),
-             get_x2_input())
+  # get_std_df(get_y_input(),
+  #            get_x1_input(),
+  #            get_x2_input())
+  get_filted_df()
 )
 ```
 
@@ -377,16 +396,19 @@ renderDataTable(get_df())
 
 ```{r}
 renderPrint({
-  cat( paste( '\nvar_y_name = ', get_y_input(),
-              '---',
-              str(y_names), 
-              '-----',"var_y_value:", 
-              str(get_y_value_input())),
-       paste('\nvar_x1_name = ', str(get_x1_input())),
-       paste('\nvar_x2_name = ', str(get_x2_input())),
-       paste('\nvar_ts_name = ', str(get_ts_input())),
-       paste('\nplot_1d_type   = ', get_geom_1d_input()),
-       paste('\nplot_md_type   = ', get_geom_md_input())
+  cat( 
+      paste('\ntransformed dataframe size:', get_filted_df()|>dim()), 
+      paste('\nx1_input_value :',get_x1_value_input() ), 
+      paste('\nx2_input_value :',get_x2_value_input() )
+      # paste( '\nvar_y_name = ', str(get_y_input()),
+      #         '---', str(y_names), 
+      #         '-----',"var_y_value:", 
+      #         str(get_y_value_input())),
+      #  paste('\nvar_x1_name = ', str(get_x1_input())),
+      #  paste('\nvar_x2_name = ', str(get_x2_input())),
+      #  paste('\nvar_ts_name = ', str(get_ts_input())),
+      #  paste('\nplot_1d_type   = ', get_geom_1d_input()),
+      #  paste('\nplot_md_type   = ', get_geom_md_input())
        )
       })
 
