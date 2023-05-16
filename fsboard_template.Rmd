@@ -21,7 +21,8 @@ output:
 # TODO 4[DONE]: add the interative of value select. For example, after select X variable name, get category list, and put it in to a multiselect input. it can be used to filter data.frame
 # TODO 5[DONE]: publish to github
 # TODO 6[DONE]: publish to shinyweb.
-# TODO 7: profile shiny slow reason
+# TODO 7[DONE]: profile shiny slow reason
+# profvis::profvis(expr = rmarkdown::run("fsboard_template.Rmd"), prof_output = "flexdashboard.html")
 ```
 
 
@@ -320,54 +321,73 @@ renderPlot(
 ### Y~X1+X2 Plot
 
 ```{r}
-get_md_plot <- function(plot_type='geom_boxplot', df) {
-  gg <- ggplot(df, aes(y = var_y, x = var_x1, color = var_x2))
-  
-  g_step <- gg + switch(plot_type,
-            'geom_point' =  geom_point(),
-            'geom_area' = geom_area(),
-            'geom_boxplot' =   geom_boxplot(),
-            'geom_violin' = geom_violin(),
-            'geom_line' = geom_line(),
-            
-
-           )
-  g_step + 
-    labs(y = get_y_input(),x = get_x1_input()) +
-    theme_classic() +
-    theme(axis.title = element_text(
-                        face = 'bold', ## Font style
-                        size = 20, ## Font size
-                        ),
-        axis.text = element_text(
-                        face = "bold", ## Font style
-                        color = "blue",
-                        size = 10),
-        legend.text = element_text(
-                        face = "bold", ## Font sytle
-                        color = "blue",
-                        size = 15),
-        )
-}
-renderPlot(
-   get_filted_df() |>
-   #   get_std_df(get_y_input(), get_x1_input(), get_x2_input(), keep_ts = TRUE) |>
-   get_md_plot(get_geom_md_input(), df = _)
-)  
+# get_md_plot <- function(plot_type='geom_boxplot', df) {
+#   gg <- ggplot(df, aes(y = var_y, x = var_x1, color = var_x2))
+#   
+#   g_step <- gg + switch(plot_type,
+#             'geom_point' =  geom_point(),
+#             'geom_area' = geom_area(),
+#             'geom_boxplot' =   geom_boxplot(),
+#             'geom_violin' = geom_violin(),
+#             'geom_line' = geom_line(),
+#             
+# 
+#            )
+#   g_step + 
+#     labs(y = get_y_input(),x = get_x1_input()) +
+#     theme_classic() +
+#     theme(axis.title = element_text(
+#                         face = 'bold', ## Font style
+#                         size = 20, ## Font size
+#                         ),
+#         axis.text = element_text(
+#                         face = "bold", ## Font style
+#                         color = "blue",
+#                         size = 10),
+#         legend.text = element_text(
+#                         face = "bold", ## Font sytle
+#                         color = "blue",
+#                         size = 15),
+#         )
+# }
+# renderPlot(
+#    get_filted_df() |>
+#    #   get_std_df(get_y_input(), get_x1_input(), get_x2_input(), keep_ts = TRUE) |>
+#    get_md_plot(get_geom_md_input(), df = _)
+# )  
 ```
 
 
 ###  Time series plot
 ```{r}
-renderPlot(
-   #dcmp <- get_std_df(get_y_input(), get_x1_input(), get_x2_input(),get_ts_input()) |> 
-   #  model(STL(Beer ~ season(window = Inf))) |>
-   #  components() %>% autoplot()
-   # y <- get_y_input()
-   # x <- get_x1_input()
-   # ts <- get_ts_input()
-   get_df() |> autoplot()
-)
+# renderPlot(
+#    #dcmp <- get_std_df(get_y_input(), get_x1_input(), get_x2_input(),get_ts_input()) |> 
+#    #  model(STL(Beer ~ season(window = Inf))) |>
+#    #  components() %>% autoplot()
+#    # y <- get_y_input()
+#    # x <- get_x1_input()
+#    # ts <- get_ts_input()
+#    get_filted_df() |>
+#      ggplot(mapping = aes(y = var_y, 
+#                           x = Month,
+#                           ))+
+#      geom_line()+
+#      labs(y = get_y_input(),x = get_ts_input()) +
+#      theme_classic() +
+#      theme(axis.title = element_text(
+#                         face = 'bold', ## Font style
+#                         size = 20, ## Font size
+#                         ),
+#      axis.text = element_text(
+#                         face = "bold", ## Font style
+#                         color = "blue",
+#                         size = 10),
+#      legend.text = element_text(
+#                         face = "bold", ## Font sytle
+#                         color = "blue",
+#                         size = 15),
+#         )
+# )
       
 ```
 
